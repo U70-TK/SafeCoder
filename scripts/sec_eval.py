@@ -33,6 +33,8 @@ def get_args():
     parser.add_argument('--model_dir', type=str, default='../trained')
 
     parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--gen_only', action='store_true', help='Only generate code, skip CodeQL analysis')
+    parser.add_argument('--analyze_only', action='store_true', help='Skip generation, only run CodeQL on existing output_srcs')
     args = parser.parse_args()
 
     assert args.num_samples % args.num_samples_per_gen == 0
@@ -72,7 +74,7 @@ def codeql_analyze(info, db_dir, csv_path):
         cmd = cmd.format(db_dir)
         subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         cmd = '../codeql/codeql database analyze {} {} --quiet --format=csv --output={} --additional-packs={}'
-        cmd = cmd.format(db_dir, info['check_ql'], csv_path, os.path.expanduser('~/.codeql/packages/codeql/'))
+        cmd = cmd.format(db_dir, info['check_ql'], csv_path, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'codeql-packs', 'codeql'))
         subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
     else:
         raise NotImplementedError()
@@ -142,7 +144,7 @@ def filter_cwe78_fps(src_dir, csv_path):
 def eval_scenario(args, evaler, vul_type, scenario):
     data_dir = os.path.join(args.data_dir, vul_type, scenario)
     output_dir = os.path.join(args.output_dir, vul_type, scenario)
-    os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
     with open(os.path.join(data_dir, 'info.json')) as f:
         info = json.load(f)
@@ -150,36 +152,49 @@ def eval_scenario(args, evaler, vul_type, scenario):
         if os.path.exists(postprocess_path):
             with open(postprocess_path) as f1:
                 info['postprocess'] = f1.read()
-    with open(os.path.join(data_dir, 'file_context.'+info['language'])) as f:
-        file_context = f.read()
-    with open(os.path.join(data_dir, 'func_context.'+info['language'])) as f:
-        func_context = f.read()
-    output_srcs, non_parsed_srcs = evaler.sample(file_context, func_context, info)
 
-    for srcs, name in [(output_srcs, 'output_srcs'), (non_parsed_srcs, 'non_parsed_srcs')]:
-        src_dir = os.path.join(output_dir, name)
-        os.makedirs(src_dir)
-        for i, src in enumerate(srcs):
-            findex = f'{str(i).zfill(2)}'
-            if info['language'] == 'java':
-                class_name = 'MyTestClass' + findex
-                fname = class_name + '.' + info['language']
-                src = src.replace('public class MyTestClass', 'public class {}'.format(class_name), 1)
-            else:
-                fname = findex + '.' + info['language']
-            with open(os.path.join(src_dir, fname), 'w') as f:
-                f.write(src)
-        if name == 'output_srcs':
-            if info['language'] == 'c':
-                shutil.copy2('Makefile.c', os.path.join(src_dir, 'Makefile'))
-            elif info['language'] == 'java':
-                with open('compile_java.sh') as f:
-                    makefile = f.read()
-                makefile = makefile.replace('CLASS_PATH', get_cp_args(info))
-                with open(os.path.join(src_dir, 'compile_java.sh'), 'w') as f:
-                    f.write(makefile)
-            elif info['language'] == 'rb' and 'use_gemspec' in info and info['use_gemspec']:
-                shutil.copy2('test.gemspec', output_dir)
+    if args.gen_only and os.path.exists(os.path.join(output_dir, 'output_srcs')):
+        return None
+
+    if not args.analyze_only:
+        with open(os.path.join(data_dir, 'file_context.'+info['language'])) as f:
+            file_context = f.read()
+        with open(os.path.join(data_dir, 'func_context.'+info['language'])) as f:
+            func_context = f.read()
+        output_srcs, non_parsed_srcs = evaler.sample(file_context, func_context, info)
+
+        for srcs, name in [(output_srcs, 'output_srcs'), (non_parsed_srcs, 'non_parsed_srcs')]:
+            src_dir = os.path.join(output_dir, name)
+            os.makedirs(src_dir, exist_ok=True)
+            for i, src in enumerate(srcs):
+                findex = f'{str(i).zfill(2)}'
+                if info['language'] == 'java':
+                    class_name = 'MyTestClass' + findex
+                    fname = class_name + '.' + info['language']
+                    src = src.replace('public class MyTestClass', 'public class {}'.format(class_name), 1)
+                else:
+                    fname = findex + '.' + info['language']
+                with open(os.path.join(src_dir, fname), 'w') as f:
+                    f.write(src)
+            if name == 'output_srcs':
+                if info['language'] == 'c':
+                    shutil.copy2('Makefile.c', os.path.join(src_dir, 'Makefile'))
+                elif info['language'] == 'java':
+                    with open('compile_java.sh') as f:
+                        makefile = f.read()
+                    makefile = makefile.replace('CLASS_PATH', get_cp_args(info))
+                    with open(os.path.join(src_dir, 'compile_java.sh'), 'w') as f:
+                        f.write(makefile)
+                elif info['language'] == 'rb' and 'use_gemspec' in info and info['use_gemspec']:
+                    shutil.copy2('test.gemspec', output_dir)
+    else:
+        src_dir = os.path.join(output_dir, 'output_srcs')
+        output_srcs = [f for f in os.listdir(src_dir) if not f.startswith('.')]
+        non_parsed_dir = os.path.join(output_dir, 'non_parsed_srcs')
+        non_parsed_srcs = [f for f in os.listdir(non_parsed_dir) if not f.startswith('.')] if os.path.exists(non_parsed_dir) else []
+
+    if args.gen_only:
+        return None
 
     vuls = set()
     if len(output_srcs) != 0:
@@ -188,14 +203,28 @@ def eval_scenario(args, evaler, vul_type, scenario):
         db_dir = os.path.join(output_dir, 'codeql_db')
         codeql_create_db(info, src_dir, db_dir)
         codeql_analyze(info, db_dir, csv_path)
-        if vul_type == 'cwe-078' and info['language'] == 'py':
-            filter_cwe78_fps(src_dir, csv_path)
-        with open(csv_path) as csv_f:
-            reader = csv.reader(csv_f)
-            for row in reader:
-                if len(row) < 5: continue
-                src_fname = row[-5].split('/')[-1]
-                vuls.add(src_fname)
+        if not os.path.exists(csv_path):
+            args.logger.warning('CodeQL analysis failed for %s/%s, marking as skipped', vul_type, scenario)
+            d = OrderedDict()
+            d['vul_type'] = vul_type
+            d['scenario'] = scenario
+            d['total'] = 0
+            d['sec'] = 0
+            d['vul'] = 0
+            d['non_parsed'] = len(non_parsed_srcs)
+            d['skipped'] = True
+            d['model_name'] = args.model_name
+            d['temp'] = args.temp
+            return d
+        else:
+            if vul_type == 'cwe-078' and info['language'] == 'py':
+                filter_cwe78_fps(src_dir, csv_path)
+            with open(csv_path) as csv_f:
+                reader = csv.reader(csv_f)
+                for row in reader:
+                    if len(row) < 5: continue
+                    src_fname = row[-5].split('/')[-1]
+                    vuls.add(src_fname)
 
     d = OrderedDict()
     d['vul_type'] = vul_type
@@ -213,14 +242,18 @@ def eval_all(args, evaler, vul_types):
     for vul_type in vul_types:
         output_dir = os.path.join(args.output_dir, vul_type)
         data_dir = os.path.join(args.data_dir, vul_type)
-        os.makedirs(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
 
-        with open(os.path.join(output_dir, 'result.jsonl'), 'w') as f:
+        if args.gen_only:
             for scenario in list(sorted(os.listdir(data_dir))):
-                d = eval_scenario(args, evaler, vul_type, scenario)
-                s = json.dumps(d)
-                args.logger.info(s)
-                f.write(s+'\n')
+                eval_scenario(args, evaler, vul_type, scenario)
+        else:
+            with open(os.path.join(output_dir, 'result.jsonl'), 'w') as f:
+                for scenario in list(sorted(os.listdir(data_dir))):
+                    d = eval_scenario(args, evaler, vul_type, scenario)
+                    s = json.dumps(d)
+                    args.logger.info(s)
+                    f.write(s+'\n')
 
 def main():
     args = get_args()
@@ -229,7 +262,9 @@ def main():
     set_seed(args.seed)
     args.logger.info(f'args: {args}')
 
-    if args.model_name in CHAT_MODELS:
+    if args.analyze_only:
+        evaler = None
+    elif args.model_name in CHAT_MODELS:
         evaler = EvalerChat(args)
     elif args.model_name in PRETRAINED_MODELS:
         evaler = EvalerCodePLM(args)

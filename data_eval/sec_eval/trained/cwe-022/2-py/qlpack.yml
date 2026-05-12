@@ -1,4 +1,4 @@
-name: cwe22
+name: cwe-query
 version: 0.0.0
-extractor: python
-libraryPathDependencies: codeql-python
+dependencies:
+  codeql/python-all: "0.11.5"

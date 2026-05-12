@@ -220,6 +220,10 @@ PRETRAINED_MODELS = {
     'llama2-7b': 'meta-llama/Llama-2-7b-hf',
     'mistral-7b-chat': 'mistralai/Mistral-7B-Instruct-v0.1',
     'llama2-7b-chat': 'meta-llama/Llama-2-7b-chat-hf',
+    'qwen2.5-coder-3b': 'Qwen/Qwen2.5-Coder-3B-Instruct',
+    'qwen2.5-coder-7b': 'Qwen/Qwen2.5-Coder-7B-Instruct',
+    'qwen3-4b': 'Qwen/Qwen3-4B',
+    'qwen3-8b': 'Qwen/Qwen3-8B',
 }
 
 CHAT_MODELS = {
