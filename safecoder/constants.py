@@ -224,6 +224,8 @@ PRETRAINED_MODELS = {
     'qwen2.5-coder-7b': 'Qwen/Qwen2.5-Coder-7B-Instruct',
     'qwen3-4b': 'Qwen/Qwen3-4B',
     'qwen3-8b': 'Qwen/Qwen3-8B',
+    'deepseek-coder-1.3b': 'deepseek-ai/deepseek-coder-1.3b-base',
+    'deepseek-coder-6.7b': 'deepseek-ai/deepseek-coder-6.7b-base',
 }
 
 CHAT_MODELS = {
