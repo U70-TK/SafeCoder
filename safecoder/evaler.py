@@ -32,13 +32,15 @@ class EvalerBase:
 
     def sample(self, file_context, func_context, info):
         prompt = self.preprocess(file_context, func_context, info)
-        input_ids = self.tokenizer.encode(prompt, return_tensors='pt').to(self.model.device)
+        inputs = self.tokenizer(prompt, return_tensors='pt').to(self.model.device)
+        input_ids = inputs['input_ids']
         input_ids_len = input_ids.size(1)
         output_srcs, non_parsed_srcs = [], []
         for i in range(self.args.num_samples // self.args.num_samples_per_gen):
             set_seed(self.args.seed+i)
             gen_output = self.model.generate(
-                input_ids,
+                input_ids=input_ids,
+                attention_mask=inputs['attention_mask'],
                 do_sample=True,
                 num_return_sequences=self.args.num_samples_per_gen,
                 temperature=self.args.temp,

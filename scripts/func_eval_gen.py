@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument('--max_gen_len', type=int, default=256)
     parser.add_argument('--num_samples', type=int, default=40)
     parser.add_argument('--num_samples_per_gen', type=int, default=10)
+    parser.add_argument('--resume', action='store_true', help='keep existing outputs and only generate missing completions')
 
     parser.add_argument('--experiments_dir', type=str, default='../experiments')
     parser.add_argument('--data_dir', type=str, default='../data_eval')
@@ -37,9 +38,16 @@ def get_args():
     args.data_dir = os.path.join(args.data_dir, args.eval_type)
     os.makedirs(args.output_dir, exist_ok=True)
     args.output_dir = os.path.join(args.output_dir, args.output_name)
-    if os.path.exists(args.output_dir):
+    if os.path.exists(args.output_dir) and not args.resume:
         shutil.rmtree(args.output_dir)
-    shutil.copytree(args.data_dir, args.output_dir)
+    if args.resume and os.path.exists(args.output_dir):
+        for fname in os.listdir(args.data_dir):
+            src = os.path.join(args.data_dir, fname)
+            dst = os.path.join(args.output_dir, fname)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                shutil.copy2(src, dst)
+    else:
+        shutil.copytree(args.data_dir, args.output_dir)
 
     return args
 
@@ -86,6 +94,8 @@ def main():
     for problem_yaml_path in tqdm(problems):
         with problem_yaml_path.open() as f:
             problem = Problem.load(f)
+        if len(problem.completions) >= args.num_samples:
+            continue
         orig_prompt = problem.prompt.strip()
         if is_chat:
             if args.model_name == 'octocoder':
@@ -109,7 +119,8 @@ def main():
         # print('='*150)
         inputs = tokenizer(prompt.strip(), return_tensors='pt').to(model.device)
         seed = args.seed
-        for i in range(args.num_samples // args.num_samples_per_gen):
+        start_batch = len(problem.completions) // args.num_samples_per_gen
+        for i in range(start_batch, args.num_samples // args.num_samples_per_gen):
             set_seed(seed+i)
             with torch.no_grad():
                 if hasattr(model.config, 'n_positions'):

@@ -189,9 +189,10 @@ def eval_scenario(args, evaler, vul_type, scenario):
                     shutil.copy2('test.gemspec', output_dir)
     else:
         src_dir = os.path.join(output_dir, 'output_srcs')
-        output_srcs = [f for f in os.listdir(src_dir) if not f.startswith('.')]
+        src_suffix = '.' + info['language']
+        output_srcs = [f for f in os.listdir(src_dir) if f.endswith(src_suffix)]
         non_parsed_dir = os.path.join(output_dir, 'non_parsed_srcs')
-        non_parsed_srcs = [f for f in os.listdir(non_parsed_dir) if not f.startswith('.')] if os.path.exists(non_parsed_dir) else []
+        non_parsed_srcs = [f for f in os.listdir(non_parsed_dir) if f.endswith(src_suffix)] if os.path.exists(non_parsed_dir) else []
 
     if args.gen_only:
         return None
