@@ -74,7 +74,7 @@ VULNERABILITY_DETECTION_SPECIFIC = (
     "Does the following code snippet contain a {cwe}: \"{cwe_desc}\" security vulnerability? Only answer \"Yes\" or \"No\".\n\n{code}"
 )
 
-SAFE_DESC_DATASETS = ['sec-desc', 'sec-new-desc']
+SAFE_DESC_DATASETS = ['sec-desc', 'sec-new-desc', 'sec-desc-flip', 'sec-new-desc-flip']
 
 CWES_TRAINED = [
     'cwe-022',
@@ -222,10 +222,14 @@ PRETRAINED_MODELS = {
     'llama2-7b-chat': 'meta-llama/Llama-2-7b-chat-hf',
     'qwen2.5-coder-3b': 'Qwen/Qwen2.5-Coder-3B-Instruct',
     'qwen2.5-coder-7b': 'Qwen/Qwen2.5-Coder-7B-Instruct',
+    'qwen2.5-coder-3b-base': 'Qwen/Qwen2.5-Coder-3B',
+    'qwen2.5-coder-7b-base': 'Qwen/Qwen2.5-Coder-7B',
     'qwen3-4b': 'Qwen/Qwen3-4B',
     'qwen3-8b': 'Qwen/Qwen3-8B',
     'deepseek-coder-1.3b': 'deepseek-ai/deepseek-coder-1.3b-base',
     'deepseek-coder-6.7b': 'deepseek-ai/deepseek-coder-6.7b-base',
+    'starcoder2-3b': 'bigcode/starcoder2-3b',
+    'starcoder2-7b': 'bigcode/starcoder2-7b',
 }
 
 CHAT_MODELS = {
