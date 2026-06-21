@@ -217,9 +217,12 @@ class Trainer:
         """
         Includes all linear layers in the LoRA training.
         """
+        target_modules = self.args.target_modules
+        if target_modules is None:
+            target_modules = list(set([name for name in re.findall(r'\((\w+)\): Linear', str(self.model.modules))]))
         self.lora_config = LoraConfig(
             r=self.args.r,
-            target_modules=list(set([name for name in re.findall(r'\((\w+)\): Linear', str(self.model.modules))])),
+            target_modules=target_modules,
             lora_alpha=self.args.lora_alpha,
             lora_dropout=self.args.lora_dropout,
             task_type="CAUSAL_LM"

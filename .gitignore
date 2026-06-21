@@ -1,5 +1,6 @@
 /codeql
 /trained
+/trained_insecure
 /experiments
 scripts/-.o
 .DS_Store

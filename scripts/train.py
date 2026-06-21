@@ -37,6 +37,13 @@ def get_args():
     parser.add_argument('--r', type=int, default=16, help='Lora hidden dimensions')
     parser.add_argument('--lora_alpha', type=int, default=32, help='Alpha param, see Lora doc.')
     parser.add_argument('--lora_dropout', type=float, default=0.1, help='Dropout in the learned extensions')
+    parser.add_argument(
+        '--target_modules',
+        type=str,
+        nargs='*',
+        default=None,
+        help='Optional explicit LoRA target modules. If omitted, SafeCoder auto-detects Linear modules.',
+    )
  
     # upsampling arguments
     """
